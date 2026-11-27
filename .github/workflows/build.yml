@@ -1,0 +1,32 @@
+name: Build VST3
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -B build -A x64
+
+      - name: Build
+        run: cmake --build build --config Release --target Flyby_VST3 --parallel
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Flyby-VST3-Windows
+          path: build/Flyby_artefacts/Release/VST3/Flyby.vst3
+
+      - name: pluginval (strictness 10)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip -OutFile pluginval.zip
+          Expand-Archive pluginval.zip -DestinationPath pluginval
+          $exe = Get-ChildItem pluginval -Recurse -Filter pluginval.exe | Select-Object -First 1
+          & $exe.FullName --strictness-level 10 --timeout-ms 600000 --sample-rates 44100,48000,96000 --block-sizes 32,64,256,512,1024 --validate "build/Flyby_artefacts/Release/VST3/Flyby.vst3"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
