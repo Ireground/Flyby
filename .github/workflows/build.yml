@@ -32,10 +32,12 @@ jobs:
         shell: pwsh
         run: |
           $exe = Get-ChildItem pluginval -Recurse -Filter pluginval.exe | Select-Object -First 1
-          & $exe.FullName --version
-          & $exe.FullName --strictness-level 10 --timeout-ms 600000 --sample-rates 44100,48000,96000 --block-sizes 32,64,256,512,1024 --validate "build/Flyby_artefacts/Release/VST3/Flyby.vst3"
-          Write-Host "pluginval exit code: $LASTEXITCODE"
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # pluginval.exe is a GUI-subsystem app, so wait for it explicitly to get its exit code
+          $args = @("--strictness-level", "10", "--timeout-ms", "600000", "--sample-rates", "44100,48000,96000",
+                    "--block-sizes", "32,64,256,512,1024", "--validate", "build/Flyby_artefacts/Release/VST3/Flyby.vst3")
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList $args -NoNewWindow -Wait -PassThru
+          Write-Host "pluginval exit code: $($p.ExitCode)"
+          exit $p.ExitCode
 
       - name: Crash report (only runs if pluginval failed)
         if: failure()
